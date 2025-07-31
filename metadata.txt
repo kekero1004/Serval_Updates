@@ -1,0 +1,63 @@
+[general]
+name=Serval
+qgisMinimumVersion=3.36
+qgisMaximumVersion=3.99
+description=Advanced raster editing tools with enhanced filtering capabilities
+version=3.33.0
+author=Radoslaw Pasiok for Lutra Consulting Ltd.
+email=radek.pasiok@lutraconsulting.co.uk
+about=Advanced raster editing tools - select and apply modifications to raster data. Features include setting constant values, NoData handling, expressions, interpolation, and comprehensive filtering capabilities: Fill Voids, Terrain Filtering (DSM to DTM), Outlier Detection/Removal, Edge Interpolation, Average/Median/Constrained Filtering. Multiband rasters fully supported.
+tracker=https://github.com/lutraconsulting/serval/issues
+repository=https://github.com/lutraconsulting/serval
+
+# End of mandatory metadata
+# Recommended items:
+# Uncomment the following line and add your changelog:
+
+changelog=
+        3.33.0 Enhanced with advanced filtering capabilities:
+            * Fill Voids - NoData area interpolation with IDW, Bilinear, Kriging methods
+            * Terrain Filter - DSM to DTM conversion with morphological filtering
+            * Outlier Filter - Statistical, MAD, IQR-based outlier detection and removal
+            * Interpolate from Edges - Edge-based interpolation for selected areas
+            * Average Filter - Uniform, Gaussian, Distance-weighted averaging
+            * Constrained Filter - Limited-change averaging with slope preservation
+            * Median Filter - Noise reduction with various kernel shapes
+            * Enhanced compatibility for QGIS 3.36+
+        3.32.0 Added new raster type (Int8) to provider types
+        3.10.5 Handle rasters with invalid path
+        3.10.4 Fix for XYZ rasters and others non-GDAL providers
+        3.10.3 Improved checking raster driver capabilities, added option to hide Serval toolbars
+        3.10.2 Set some menu actions to be always ON
+        3.10.1 Fixed CRS transform issues, updated documentation.
+        3.10.0 New features:
+            * multi-band rasters support
+            * raster cells selection tools
+            * saving/loading selections to/from map layers
+            * QGIS expressions support including interpolation from vector and mesh layers
+            * low-pass 3x3 raster filtering
+        3.0.1 Fixed setting working raster in Linux (issue #18)
+        3.0 Port to QGIS 3
+        0.8.1 Added support for Float64 data type
+        0.8 Plugin interface is now plain toolbar (no dock widget). Workaround for Python crashes under Windows. New features:
+            * undo/redo
+            * define/change NoData value for raster bands
+            * erase (assign NoData value to a cell)
+        0.6 new features:
+            * 3 bands rasters supported
+            * working modes (probing, drawing)
+            * QGIS color picker
+
+
+# Tags are comma separated with spaces allowed
+tags=raster, band, multiband, grid, pixel, value, cell, draw, nodata, select, selection, filter, expression, terrain, outlier, interpolation, averaging, median, dsm, dtm, fill_voids
+
+homepage=https://github.com/lutraconsulting/serval/blob/master/Serval/docs/user_manual.md
+category=Raster
+icon=icons/serval_icon.svg
+# experimental flag
+experimental=False
+
+# deprecated flag (applies to the whole plugin, not just a single version)
+deprecated=False
+

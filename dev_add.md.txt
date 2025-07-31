@@ -1,0 +1,278 @@
+# QGIS Serval 플러그인 고도 래스터 편집 기능 확장 PRD
+
+## 1. 프로젝트 개요
+
+### 1.1 목적
+QGIS 3.36.2 이상에서 동작하는 Serval 플러그인에 ArcGIS Pro 3.4.2의 Pixel Editor와 동등한 수준의 DEM/DSM/DTM 고도 래스터 편집 기능을 구현하여, 드론 측량 데이터 후처리 및 지형 모델링 워크플로우를 개선합니다.
+
+### 1.2 배경
+현재 QGIS에서는 고도 래스터 편집을 위한 통합적이고 직관적인 도구가 부족한 상황입니다. 특히 드론 기반 포토그래메트리나 LiDAR 데이터에서 생성된 DSM을 DTM으로 변환하거나, NoData 영역을 보간하는 작업에서 ArcGIS Pro 수준의 편의성을 제공하지 못하고 있습니다.
+
+### 1.3 범위
+- DEM, DSM, DTM 등 모든 고도 래스터 포맷 지원
+- 실시간 편집 및 미리보기 기능
+- 드론 데이터 후처리에 특화된 필터링 도구
+- 배치 처리 지원
+
+## 2. 기능 요구사항
+
+### 2.1 핵심 필터 기능
+
+#### 2.1.1 Fill Voids (공백 채우기)
+**기능 설명**: NoData 영역을 주변 유효한 픽셀값을 기반으로 보간하여 채웁니다.
+
+**세부 요구사항**:
+- **입력**: 래스터 레이어, 처리 영역(다각형 또는 전체)
+- **매개변수**:
+  - 보간 방법: IDW, Kriging, Natural Neighbor, Bilinear
+  - 검색 반경: 1-100 픽셀 (기본값: 10)
+  - 최소 인접 픽셀 수: 3-8개 (기본값: 4)
+  - 품질 임계값: 0.1-1.0 (기본값: 0.7)
+- **출력**: 공백이 채워진 래스터
+- **용도**: 수역, 그림자, 스테레오 중첩 부족 영역 처리
+
+#### 2.1.2 Terrain Filter (지형 필터)
+**기능 설명**: DSM에서 건물, 식생 등 지상 구조물을 제거하여 DTM을 생성합니다.
+
+**세부 요구사항**:
+- **입력**: DSM 래스터, ROI 영역
+- **매개변수**:
+  - 필터 크기: 3x3, 5x5, 7x7, 9x9 (기본값: 5x5)
+  - 경사 임계값: 0°-45° (기본값: 15°)
+  - 높이 차이 임계값: 0.1-10m (기본값: 2m)
+  - 반복 횟수: 1-10회 (기본값: 3)
+  - 지형 보존 강도: 낮음/중간/높음
+- **알고리즘**: Progressive Morphological Filter + Cloth Simulation Filter 하이브리드
+- **출력**: DTM 래스터
+
+#### 2.1.3 Outlier Filter (이상치 필터)
+**기능 설명**: 통계적 방법으로 이상치를 탐지하고 제거합니다.
+
+**세부 요구사항**:
+- **입력**: 고도 래스터, 처리 영역
+- **매개변수**:
+  - 탐지 방법: Statistical (Z-score), MAD (Median Absolute Deviation), IQR
+  - 임계값: 1.5-4.0 표준편차 (기본값: 2.5)
+  - 윈도우 크기: 3x3 ~ 15x15 (기본값: 7x7)
+  - 대체 방법: 중간값, 평균값, 보간, NoData 처리
+- **특수 기능**: 하늘 날아다니는 객체(새, 항공기) 자동 탐지 및 제거
+
+### 2.2 보간 기능
+
+#### 2.2.1 Interpolate from Edges (가장자리 보간)
+**기능 설명**: 선택 영역의 경계 픽셀값을 기반으로 내부를 보간합니다.
+
+**세부 요구사항**:
+- **보간 방법**: TIN 기반, IDW, 자연스러운 경사면 생성
+- **경계 감지**: 자동 유효 픽셀 경계 추출
+- **매개변수**:
+  - 보간 알고리즘 선택
+  - 평활화 강도: 0-100% (기본값: 50%)
+  - 경계 페더링: 0-10 픽셀 (기본값: 2)
+
+#### 2.2.2 Interpolate from Vertices (꼭짓점 보간)
+**기능 설명**: 사용자가 지정한 제어점들을 기반으로 보간합니다.
+
+**세부 요구사항**:
+- **입력 방식**: 대화형 점 편집 도구
+- **보간 방법**: TIN, Spline, IDW
+- **제어점 관리**: 추가/삭제/이동 가능
+- **실시간 미리보기**: 보간 결과 즉시 표시
+
+### 2.3 필터링 옵션
+
+#### 2.3.1 Average Filter (평균 필터)
+**기능 설명**: 지정된 커널 크기로 평균값을 계산하여 고도값을 부드럽게 합니다.
+
+**세부 요구사항**:
+- **커널 크기**: 3x3 ~ 21x21 (홀수만)
+- **경계 처리**: 반사, 확장, 상수값
+- **가중치 옵션**: 균등, 가우시안, 거리 기반
+
+#### 2.3.2 Constrained Filter (제약 필터)
+**기능 설명**: 원본값에서 변경 가능한 최대 임계값을 가진 평균 필터입니다.
+
+**세부 요구사항**:
+- **최대 변경량**: 0.1-10m (기본값: 1m)
+- **적응적 임계값**: 지역 경사에 따른 동적 조정
+- **보존 영역**: 급경사 지역 자동 보호
+
+#### 2.3.3 Median Filter (중간값 필터)
+**기능 설명**: 노이즈 제거에 효과적인 중간값 기반 필터입니다.
+
+**세부 요구사항**:
+- **커널 크기**: 3x3 ~ 15x15
+- **형태**: 사각형, 원형, 십자형
+- **반복 적용**: 1-5회
+
+## 3. 기술 요구사항
+
+### 3.1 개발 환경
+- **QGIS 버전**: 3.36.2 이상
+- **Python 버전**: 3.9 이상
+- **필수 라이브러리**:
+  - GDAL/OGR 3.7+
+  - NumPy 1.21+
+  - SciPy 1.7+
+  - scikit-image 0.19+
+  - Rasterio 1.3+
+
+### 3.2 성능 요구사항
+- **메모리 효율성**: 대용량 래스터(>2GB) 처리 시 타일 기반 처리
+- **처리 속도**: 1000x1000 픽셀 영역 처리 시 10초 이내
+- **멀티코어 지원**: CPU 코어 수에 따른 병렬 처리
+- **진행률 표시**: 장시간 작업 시 취소 가능한 진행률 바
+
+### 3.3 사용자 인터페이스
+
+#### 3.3.1 도구 패널
+```
+[Elevation Raster Editor]
+├── Data Processing
+│   ├── Fill Voids
+│   ├── Terrain Filter  
+│   └── Outlier Filter
+├── Interpolation
+│   ├── From Edges
+│   └── From Vertices
+└── Smoothing
+    ├── Average Filter
+    ├── Constrained Filter
+    └── Median Filter
+```
+
+#### 3.3.2 대화형 편집 도구
+- **영역 선택**: 다각형, 사각형, 자유형 선택 도구
+- **실시간 미리보기**: 처리 전/후 비교 뷰
+- **매개변수 조정**: 슬라이더 및 수치 입력
+- **되돌리기/다시실행**: 다단계 실행 취소 지원
+
+### 3.4 데이터 호환성
+- **입력 포맷**: GeoTIFF, IMG, DEM, ASC, XYZ, LAS/LAZ
+- **출력 포맷**: GeoTIFF (기본), IMG, ASC
+- **좌표계**: 모든 투영 좌표계 지원
+- **데이터 타입**: Float32, Float64, Int16, Int32
+
+## 4. 구현 세부사항
+
+### 4.1 핵심 알고리즘
+
+#### 4.1.1 Fill Voids 구현
+```python
+class VoidFiller:
+    def __init__(self, method='idw', search_radius=10):
+        self.method = method
+        self.search_radius = search_radius
+    
+    def fill_voids(self, raster_array, nodata_mask):
+        """
+        NoData 영역을 주변 유효 픽셀로 보간
+        """
+        # IDW, Kriging, Natural Neighbor 중 선택
+        # 타일 기반 처리로 메모리 효율성 확보
+        pass
+```
+
+#### 4.1.2 Terrain Filter 구현
+```python
+class TerrainFilter:
+    def __init__(self, slope_threshold=15, height_threshold=2):
+        self.slope_threshold = slope_threshold
+        self.height_threshold = height_threshold
+    
+    def extract_terrain(self, dsm_array):
+        """
+        Progressive Morphological Filter + Cloth Simulation
+        """
+        # 1. 형태학적 열림 연산으로 초기 지면점 추출
+        # 2. Cloth Simulation으로 정밀 지형 추출
+        # 3. 경사 기반 필터링으로 최종 정제
+        pass
+```
+
+### 4.2 플러그인 구조
+```
+serval_elevation_editor/
+├── __init__.py
+├── elevation_editor.py          # 메인 플러그인 클래스
+├── ui/
+│   ├── elevation_editor_dialog.py
+│   ├── elevation_editor_dialog.ui
+│   └── filter_widgets.py
+├── algorithms/
+│   ├── void_filler.py
+│   ├── terrain_filter.py
+│   ├── outlier_filter.py
+│   └── interpolation.py
+├── utils/
+│   ├── raster_utils.py
+│   ├── geometry_utils.py
+│   └── progress_utils.py
+└── resources/
+    ├── icons/
+    └── help/
+```
+
+## 5. 테스트 계획
+
+### 5.1 테스트 데이터셋
+- **드론 DSM**: DJI Phantom 4 RTK 데이터 (1cm 해상도)
+- **LiDAR DTM**: 항공 LiDAR 데이터 (50cm 해상도)
+- **합성 DEM**: 알려진 지형 특성의 테스트 데이터
+
+### 5.2 성능 테스트
+- **소규모**: 1000x1000 픽셀
+- **중간 규모**: 5000x5000 픽셀  
+- **대규모**: 10000x10000 픽셀
+
+### 5.3 정확도 검증
+- **Ground Truth 비교**: 실측 데이터와의 RMSE 계산
+- **교차 검증**: 다른 소프트웨어 결과와 비교
+- **시각적 품질 평가**: 전문가 검토
+
+## 6. 프로젝트 일정
+
+### Phase 1 (4주): 핵심 필터 구현
+- Fill Voids 알고리즘 개발
+- Terrain Filter 기본 구현
+- 기본 UI 개발
+
+### Phase 2 (3주): 고급 기능 구현  
+- Outlier Filter 개발
+- 보간 기능 구현
+- 성능 최적화
+
+### Phase 3 (2주): 필터링 옵션 및 통합
+- Average/Constrained/Median Filter
+- UI 통합 및 사용성 개선
+- 문서화
+
+### Phase 4 (2주): 테스트 및 배포
+- 종합 테스트
+- 버그 수정
+- 배포 준비
+
+## 7. 위험 요소 및 대응방안
+
+### 7.1 기술적 위험
+- **메모리 부족**: 타일 기반 처리 구현
+- **처리 속도**: 멀티스레딩 및 최적화된 알고리즘 사용
+- **정확도 문제**: 충분한 테스트 데이터셋으로 검증
+
+### 7.2 호환성 위험
+- **QGIS 버전 변경**: 최신 QGIS API 지속 모니터링
+- **라이브러리 의존성**: 안정적인 버전 고정
+
+## 8. 성공 기준
+
+### 8.1 기능적 성공 기준
+- ArcGIS Pro Pixel Editor와 동등한 기능 제공
+- 드론 데이터 후처리 워크플로우 90% 이상 커버
+- 사용자 만족도 4.0/5.0 이상
+
+### 8.2 기술적 성공 기준
+- 2GB 이상 래스터 안정적 처리
+- 처리 시간 ArcGIS Pro 대비 150% 이내
+- 메모리 사용량 시스템 RAM의 80% 이하
+
+이 PRD는 GIS 전문가의 실무 경험을 바탕으로 작성되었으며, 특히 드론 측량 및 지형 모델링 분야의 실제 요구사항을 반영하여 구성되었습니다.
